@@ -1,0 +1,162 @@
+---
+title: "Personal Activity Data Analysis and Visualization"
+author: "Long Dang"
+date: "2024-07-17"
+output: html_document
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, fig.path = "figure/")
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+
+## Introduction
+
+It is now possible to collect a large amount of data about personal
+movement using activity monitoring devices such as a Fitbit, Nike
+Fuelband, or Jawbone Up. These devices are part of the “quantified self”
+movement – a group of enthusiasts who take measurements about themselves
+regularly to improve their health, to find patterns in their behavior,
+or because they are tech geeks. However, these data remain
+under-utilized both because the raw data are hard to obtain and there is
+a lack of statistical methods and software for processing and
+interpreting the data.
+
+This assignment makes use of data from a personal activity monitoring
+device. This device collects data at 5-minute intervals throughout the
+day. The data consists of two months of data from an anonymous
+individual collected during October and November 2012 and includes the
+number of steps taken in 5-minute intervals each day.
+
+# Loading and preprocessing the data
+
+## Load the dataset
+
+activity_data \<- read.csv("activity.csv")
+
+## Process the Data
+
+## Check the structure of the data
+
+str(activity_data)
+
+## Summary of the data
+
+summary(activity_data)
+
+# What is mean total number of steps taken per day? Mean Steps: 9354.23, Median Steps: 10395
+# Total Steps Per Day
+## Calculate the total number of steps taken per day
+
+total_steps_per_day \<- tapply(activity_data$steps, activity_data$date, sum, na.rm = TRUE)
+
+## Plot histogram
+
+hist(total_steps_per_day, main = "Total Steps per Day", xlab = "Number of Steps", col = "blue", breaks = 20)
+
+## Calculate mean and median
+
+mean_steps \<- mean(total_steps_per_day, na.rm = TRUE) 
+median_steps \<- median(total_steps_per_day, na.rm = TRUE)
+
+## Print results
+
+mean_steps 
+median_steps
+
+# What is the average daily activity pattern? 835 Steps
+# Average Daily Activity Pattern
+
+## Calculate average steps per interval
+
+avg_steps_per_interval \<- tapply(activity_data$steps, activity_data$interval, mean, na.rm = TRUE)
+
+## Time series plot
+
+plot(names(avg_steps_per_interval), avg_steps_per_interval, type = "l", col = "blue", lwd = 2, xlab = "5-minute Interval", ylab = "Average Number of Steps", main = "Average Daily Activity Pattern")
+
+## Find the maximum interval
+
+max_interval \<- names(avg_steps_per_interval)[which.max(avg_steps_per_interval)]
+max_interval
+
+# Imputing Missing Values
+## Count missing values
+
+total_missing \<- sum(is.na(activity_data\$steps)) total_missing
+
+## Impute missing values
+
+imputed_data \<- activity_data
+imputed_data$steps[is.na(imputed_data$steps)] \<-
+avg_steps_per_interval[as.character(imputed_data$interval[is.na(imputed_data$steps)])]
+
+## Calculate total steps per day with imputed data
+
+total_steps_per_day_imputed \<- tapply(imputed_data$steps, imputed_data$date, sum)
+
+## Plot histogram
+
+hist(total_steps_per_day_imputed, main = "Total Steps per Day
+(Imputed)", xlab = "Number of Steps", col = "green", breaks = 20)
+
+## Calculate mean and median after imputation
+
+mean_steps_imputed \<- mean(total_steps_per_day_imputed)
+median_steps_imputed \<- median(total_steps_per_day_imputed)
+
+## Print results
+
+mean_steps_imputed 
+median_steps_imputed
+
+# Weekday vs. Weekend Activity
+
+## Add weekday/weekend factor
+
+imputed_data$date <- as.Date(imputed_data$date) \
+imputed_data$day_type <- ifelse(weekdays(imputed_data$date) %in%
+c("Saturday", "Sunday"), "weekend", "weekday") \
+imputed_data$day_type <- factor(imputed_data$day_type, levels =
+c("weekday", "weekend"))
+
+## Calculate average steps per interval for weekdays and weekends
+
+avg_steps_per_interval_weekday \<- imputed_data %\>% \
+filter(day_type == "weekday") %\>% \
+group_by(interval) %\>% \
+summarise(avg_steps = mean(steps, na.rm = TRUE))
+
+avg_steps_per_interval_weekend \<- imputed_data %\>% \
+filter(day_type == "weekend") %\>% \
+group_by(interval) %\>% \
+summarise(avg_steps = mean(steps, na.rm = TRUE))
+
+## Combine into a single data frame
+
+avg_steps_combined \<- avg_steps_per_interval_weekday %\>% \
+rename(weekday_steps = avg_steps) %\>% \
+left_join(avg_steps_per_interval_weekend %\>% \
+rename(weekend_steps = avg_steps), by = "interval")
+
+## Reshape data for plotting
+
+avg_steps_long \<- avg_steps_combined %\>% \
+gather(key = "day_type", value = "avg_steps", weekday_steps,
+weekend_steps)
+
+## Plot using ggplot2
+
+ggplot(avg_steps_long, aes(x = interval, y = avg_steps, color =
+day_type)) + geom_line() + facet_wrap(\~day_type, ncol = 1, scales =
+"free_y") + labs(title = "Average Daily Activity Pattern: Weekdays vs
+Weekends", x = "5-minute Interval", y = "Average Number of Steps") +
+theme_minimal()
+
+## Are there differences in activity patterns between weekdays and weekends?
+# Weekdays: Activity tends to peak in the morning, specifically around the interval 835 (around 8:35 AM). After this peak, activity levels off and remains relatively stable with minor fluctuations throughout the day.
+# Weekends: Activity is more spread out across the day. There are multiple peaks rather than a single prominent peak. Activity starts increasing later in the morning compared to weekdays and continues with higher variability throughout the day.
